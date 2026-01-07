@@ -17,3 +17,6 @@ dependencies:
   - openai
   - pip:
     - ollama
+    - pytest
+    - pytest-cov
+    - pytest-mock

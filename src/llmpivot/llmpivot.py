@@ -25,11 +25,11 @@ class LLMPivot:
                 raise ValueError("api_key is required for online model")
             
             self.logger.info(f"Creating ApiLLM instance, base_url: {self.config.base_url}")
-            return ApiLLM(self.config)
+            return ApiLLM(self.config, self.logger)
         
         elif self.config.model_type == ModelType.LOCAL:
             self.logger.info(f"Creating LocalLLM instance, ollama_host: {self.config.base_url}")
-            return LocalLLM(self.config)
+            return LocalLLM(self.config, self.logger)
         
         else:
             self.logger.error(f"Unknown model_type: {self.config.model_type}")
