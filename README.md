@@ -22,15 +22,15 @@ Check the [Releases](https://github.com/Aquarids/llm-pivot/releases) page for th
 
 Add to your `requirements.txt`:
 
-'''txt
+```txt
 llmpivot @ git+ssh://git@github.com/Aquarids/llm-pivot.git@v0.0.1
-'''
+```
 
 Or install it directly:
 
-'''bash
+```bash
 pip install git+ssh://git@github.com/Aquarids/llm-pivot.git@v0.0.1
-'''
+```
 
 **Prerequisites:**
 - Ensure your SSH key is added to GitHub: [GitHub SSH Keys](https://github.com/settings/keys)
@@ -220,13 +220,13 @@ version = "0.2.0"
 
 #### Create Git Tag
 
-'''bash
+```bash
 # Create annotated tag
 git tag -a v0.2.0 -m "Release version 0.2.0"
 
 # Push tag to remote
 git push origin v0.2.0
-'''
+```
 
 #### Create GitHub Release (Optional)
 
