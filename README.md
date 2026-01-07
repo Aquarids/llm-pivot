@@ -238,4 +238,3 @@ Go to GitHub repository → Releases → Create a new release:
 ## License
 
 Internal use only. Not for public distribution.
-```
