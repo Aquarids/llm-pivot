@@ -10,4 +10,3 @@
 **/.vscode
 **/__pycache__
 local_config.ini
-/.pytest_cache
