@@ -16,5 +16,4 @@ dependencies:
   - transformers
   - openai
   - pip:
-    - jsonlines
-    - accelerate
+    - ollama

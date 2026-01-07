@@ -7,9 +7,18 @@ ENV_PROD = "prod"
 
 class Logger:
 
-    def __init__(self, name, env):
+    def __init__(self, name, env, enabled=True, level=None):
         self.env = env
-        self.logger: logging.Logger = self._init_logging(env, name)
+        self.enabled = enabled
+        
+        if not enabled:
+            self.logger = logging.getLogger(name)
+            self.logger.addHandler(logging.NullHandler())
+            self.logger.setLevel(logging.CRITICAL + 1)
+        else:
+            self.logger = self._init_logging(env, name)
+            if level:
+                self.set_level(getattr(logging, level.upper()))
 
     def _init_logging(self, env, name):
         if env in [ENV_LOCAL, ENV_DEV]:
@@ -18,7 +27,7 @@ class Logger:
         elif env == ENV_PROD:
             level = logging.INFO
             handlers = [
-                logging.FileHandler("flmpid.log", encoding="utf-8"),
+                logging.FileHandler("lpivot.log", encoding="utf-8"),
             ]
 
         logging.basicConfig(
@@ -29,42 +38,43 @@ class Logger:
         )
 
         if env in [ENV_LOCAL, ENV_DEV]:
-            logging.getLogger("net").setLevel(logging.WARNING)
-            logging.getLogger("scheduler").setLevel(logging.WARNING)
-            logging.getLogger('matplotlib').setLevel(logging.WARNING)
-            logging.getLogger("apscheduler.scheduler").setLevel(logging.WARNING)
-            logging.getLogger("PIL").setLevel(logging.WARNING)
-            logging.getLogger("apscheduler.executors.default").setLevel(logging.WARNING)
+            logging.getLogger("httpx").setLevel(logging.WARNING)
+            logging.getLogger("openai").setLevel(logging.WARNING)
+            logging.getLogger("httpcore").setLevel(logging.WARNING)
         elif env == ENV_PROD:
-            logging.getLogger("net").setLevel(logging.INFO)
-            logging.getLogger("scheduler").setLevel(logging.INFO)
-            logging.getLogger('matplotlib').setLevel(logging.INFO)
-            logging.getLogger("apscheduler.scheduler").setLevel(logging.INFO)
-            logging.getLogger("PIL").setLevel(logging.WARNING)
-            logging.getLogger("apscheduler.executors.default").setLevel(logging.INFO)
+            logging.getLogger("httpx").setLevel(logging.INFO)
+            logging.getLogger("openai").setLevel(logging.INFO)
+            logging.getLogger("httpcore").setLevel(logging.INFO)
 
         return logging.getLogger(name)
 
     def set_level(self, level):
-        self.logger.setLevel(level)
+        if self.enabled:
+            self.logger.setLevel(level)
 
     def log_exception(self, e: Exception):
+        if not self.enabled:
+            return
         error_trace = "".join(traceback.format_exception(type(e), e, e.__traceback__))
         self.logger.error(error_trace)
 
     def error(self, msg, *args, **kwargs):
+        if not self.enabled:
+            return
         self.logger.error(msg, *args, **kwargs)
 
     def info(self, msg, *args, **kwargs):
+        if not self.enabled:
+            return
         self.logger.info(msg, *args, **kwargs)
 
     def warning(self, msg, *args, **kwargs):
-        if not self.is_debug():
+        if not self.enabled or not self.is_debug():
             return
         self.logger.warning(msg, *args, **kwargs)
 
     def debug(self, msg, *args, **kwargs):
-        if not self.is_debug():
+        if not self.enabled or not self.is_debug():
             return
         self.logger.debug(msg, *args, **kwargs)
 
