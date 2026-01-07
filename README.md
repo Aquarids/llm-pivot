@@ -18,17 +18,23 @@ This project is private and requires collaboration access. Contact the repositor
 
 Check the [Releases](https://github.com/Aquarids/llm-pivot/releases) page for the latest version.
 
+**For SSH access (private repository):**
+
 Add to your `requirements.txt`:
 
-```txt
-llmpivot @ git+https://github.com/Aquarids/llm-pivot.git@v0.0.1
-```
+'''txt
+llmpivot @ git+ssh://git@github.com/Aquarids/llm-pivot.git@v0.0.1
+'''
 
 Or install it directly:
 
-```bash
-pip install git+https://github.com/Aquarids/llm-pivot.git@v0.0.1
-```
+'''bash
+pip install git+ssh://git@github.com/Aquarids/llm-pivot.git@v0.0.1
+'''
+
+**Prerequisites:**
+- Ensure your SSH key is added to GitHub: [GitHub SSH Keys](https://github.com/settings/keys)
+- Test SSH connection: `ssh -T git@github.com`
 
 #### Method 2: Local Development
 
@@ -199,6 +205,35 @@ pytest -m local
 # Skip integration tests
 pytest -m "not integration"
 ```
+
+### Release Guide
+
+#### Update Version Number
+
+Edit `pyproject.toml`:
+
+```toml
+[project]
+name = "llmpivot"
+version = "0.2.0"
+```
+
+#### Create Git Tag
+
+'''bash
+# Create annotated tag
+git tag -a v0.2.0 -m "Release version 0.2.0"
+
+# Push tag to remote
+git push origin v0.2.0
+'''
+
+#### Create GitHub Release (Optional)
+
+Go to GitHub repository → Releases → Create a new release:
+- Tag: `v0.2.0`
+- Title: `Release v0.2.0`
+- Description: `Changelog`
 
 ## License
 
