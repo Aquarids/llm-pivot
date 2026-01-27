@@ -23,7 +23,7 @@ Check the [Releases](https://github.com/Aquarids/llm-pivot/releases) page for th
 Add to your `requirements.txt`:
 
 ```txt
-llmpivot @ git+ssh://git@github.com/Aquarids/llm-pivot.git@v0.0.1
+llm-pivot @ git+ssh://git@github.com/Aquarids/llm-pivot.git@v0.0.1
 ```
 
 Or install it directly:
