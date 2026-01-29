@@ -59,47 +59,26 @@ conda activate your-project-env
 pip install -e /path/to/llm-pivot
 ```
 
-### Quick Start
-
-#### Basic Usage
-
-```python
-from llmpivot import LLMPivot, PivotConfig
-
-config = PivotConfig(
-    model_type="online",
-    model_id="gpt-4",
-    api_key="your-api-key",
-    base_url="https://api.openai.com/v1/"
-)
-
-with LLMPivot(config) as llm:
-    messages = [
-        {"role": "user", "content": "Hello, how are you?"}
-    ]
-    response = llm.dialogue(messages)
-    print(response)
-```
+### Basic Usage
 
 #### Online API Models
 
 ```python
 from llmpivot import LLMPivot, PivotConfig
 
-api_config = PivotConfig(
+# Basic configuration
+config = PivotConfig(
     model_type="online",
     model_id="gpt-4",
     api_key="sk-xxx",
-    base_url="https://api.openai.com/v1/",
-    temperature=0.7,
-    max_tokens=2000
+    base_url="https://api.openai.com/v1/"
 )
 
-llm = LLMPivot(api_config)
-
-messages = [{"role": "user", "content": "Explain quantum computing"}]
-response = llm.generate(messages)
-print(response['content'])
+# Use context manager for automatic cleanup
+with LLMPivot(config) as llm:
+    messages = [{"role": "user", "content": "Hello, how are you?"}]
+    response = llm.dialogue(messages)
+    print(response)
 ```
 
 #### Local Models (Ollama)
@@ -107,17 +86,51 @@ print(response['content'])
 ```python
 from llmpivot import LLMPivot, PivotConfig
 
-local_config = PivotConfig(
+config = PivotConfig(
     model_type="local",
     model_id="qwen2.5:7b",
     base_url="http://localhost:11434"
 )
 
-llm = LLMPivot(local_config)
+with LLMPivot(config) as llm:
+    messages = [{"role": "user", "content": "What is machine learning?"}]
+    response = llm.dialogue(messages)
+    print(response)
+```
 
-messages = [{"role": "user", "content": "What is machine learning?"}]
-response = llm.dialogue(messages)
-print(response)
+### Advanced Usage
+
+#### Custom Default Parameters
+
+Set default parameters for all LLM calls:
+
+```python
+config = PivotConfig(
+    model_type="online",
+    model_id="gpt-4",
+    api_key="sk-xxx",
+    llm_default_params={
+        "temperature": 0.3,
+        "max_tokens": 1000,
+        "top_p": 0.9,
+    }
+)
+
+llm = LLMPivot(config)
+
+# Uses default parameters (temperature=0.3, max_tokens=1000, top_p=0.9)
+response = llm.generate(messages=[{"role": "user", "content": "Hello"}])
+```
+
+#### Override Parameters at Runtime
+
+```python
+# Override specific parameters for this call
+response = llm.generate(
+    messages=[{"role": "user", "content": "Hello"}],
+    temperature=0.8,
+    max_tokens=2000,
+)
 ```
 
 #### Streaming Response
@@ -125,7 +138,7 @@ print(response)
 ```python
 messages = [{"role": "user", "content": "Write a short story"}]
 
-for chunk in llm.stream_generate(messages):
+for chunk in llm.stream_generate(messages, temperature=0.7):
     print(chunk, end='', flush=True)
 ```
 
@@ -152,6 +165,56 @@ tools = [
 messages = [{"role": "user", "content": "What's the weather in Beijing?"}]
 tool_calls = llm.call_function(messages, tools)
 print(tool_calls)
+# Output: [{"id": "call_xxx", "name": "get_weather", "arguments": '{"city": "Beijing"}'}]
+```
+
+#### Provider-Specific Features
+
+**DeepSeek Thinking Mode:**
+
+```python
+response = llm.generate(
+    messages=[{"role": "user", "content": "Solve this complex problem"}],
+    extra_body={"thinking": {"type": "enabled"}}
+)
+```
+
+**JSON Mode:**
+
+```python
+response = llm.generate(
+    messages=[{"role": "user", "content": "Generate a JSON object"}],
+    response_format={"type": "json_object"}
+)
+```
+
+**Ollama-Specific Parameters:**
+
+```python
+config = PivotConfig(
+    model_type="local",
+    model_id="llama3",
+    llm_default_params={
+        "temperature": 0.7,
+        "top_k": 40,
+        "repeat_penalty": 1.1,
+        "num_ctx": 4096,
+    }
+)
+```
+
+#### Embeddings
+
+```python
+# Single text
+embedding = llm.embedding("Hello world")
+print(len(embedding))  # Vector dimension
+
+# Multiple texts
+texts = ["Hello", "World", "AI"]
+embeddings = llm.embedding(texts)
+print(len(embeddings))  # 3
+print(len(embeddings[0]))  # Vector dimension
 ```
 
 ### Configuration
@@ -163,13 +226,62 @@ print(tool_calls)
 | model_type | str | "online" | "online" or "local" |
 | model_id | str | "gpt-4" | Model identifier |
 | api_key | str | None | API key for online models |
-| base_url | str | None | API base URL |
-| temperature | float | 0.7 | Sampling temperature (0.0-2.0) |
-| max_tokens | int | None | Maximum tokens to generate |
+| base_url | str | None | API base URL or Ollama host |
 | timeout | int | 60 | Request timeout in seconds |
 | max_retries | int | 1 | Maximum retry attempts |
+| llm_default_params | dict | {"temperature": 0.7} | Default parameters for LLM calls |
+| log_env | str | "local" | Log environment identifier |
 | enable_log | bool | True | Enable logging |
+| log_level | str | None | Log level (DEBUG, INFO, WARNING, ERROR) |
 
+#### Common LLM Parameters (via llm_default_params or kwargs)
+
+**Universal Parameters:**
+- `temperature` (float): Sampling temperature (0.0-2.0)
+- `max_tokens` (int): Maximum tokens to generate
+- `top_p` (float): Nucleus sampling threshold
+
+**Online API (OpenAI-compatible):**
+- `frequency_penalty` (float): Frequency penalty (-2.0 to 2.0)
+- `presence_penalty` (float): Presence penalty (-2.0 to 2.0)
+- `response_format` (dict): Response format specification
+- `extra_body` (dict): Provider-specific parameters
+
+**Local (Ollama):**
+- `top_k` (int): Top-k sampling
+- `repeat_penalty` (float): Repetition penalty
+- `num_ctx` (int): Context window size
+- `seed` (int): Random seed for reproducibility
+
+### API Reference
+
+#### Core Methods
+
+```python
+# Generate with full response details
+response = llm.generate(messages, tools=None, **kwargs)
+# Returns: {"content": str, "role": str, "tool_calls": list, "usage": dict, ...}
+
+# Simple dialogue (returns only content string)
+content = llm.dialogue(messages, **kwargs)
+# Returns: str
+
+# Function calling
+tool_calls = llm.call_function(messages, tools, **kwargs)
+# Returns: [{"id": str, "name": str, "arguments": str}, ...]
+
+# Streaming generation
+for chunk in llm.stream_generate(messages, tools=None, **kwargs):
+    print(chunk)  # str
+
+# Embeddings
+embedding = llm.embedding(text, **kwargs)
+# Returns: List[float] or List[List[float]]
+
+# Perplexity calculation
+ppl = llm.perplexity(text, **kwargs)
+# Returns: float
+```
 
 ## Development
 
@@ -204,6 +316,9 @@ pytest -m local
 
 # Skip integration tests
 pytest -m "not integration"
+
+# Verbose output
+pytest -v
 ```
 
 ### Release Guide
@@ -214,7 +329,7 @@ Edit `pyproject.toml`:
 
 ```toml
 [project]
-name = "llmpivot"
+name = "llm-pivot"
 version = "0.2.0"
 ```
 
@@ -228,12 +343,65 @@ git tag -a v0.2.0 -m "Release version 0.2.0"
 git push origin v0.2.0
 ```
 
-#### Create GitHub Release (Optional)
+#### Create GitHub Release
 
 Go to GitHub repository → Releases → Create a new release:
 - Tag: `v0.2.0`
 - Title: `Release v0.2.0`
-- Description: `Changelog`
+- Description: Add changelog and release notes
+
+## Examples
+
+### Multi-turn Conversation
+
+```python
+messages = [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "What is Python?"},
+]
+
+response1 = llm.dialogue(messages)
+messages.append({"role": "assistant", "content": response1})
+messages.append({"role": "user", "content": "Show me an example"})
+
+response2 = llm.dialogue(messages)
+print(response2)
+```
+
+### Batch Processing
+
+```python
+questions = [
+    "What is AI?",
+    "What is ML?",
+    "What is DL?"
+]
+
+for question in questions:
+    response = llm.dialogue([{"role": "user", "content": question}])
+    print(f"Q: {question}\nA: {response}\n")
+```
+
+### Error Handling
+
+```python
+from llmpivot import LLMPivot, PivotConfig
+
+config = PivotConfig(
+    model_type="online",
+    model_id="gpt-4",
+    api_key="sk-xxx",
+    max_retries=3,
+    timeout=30
+)
+
+try:
+    with LLMPivot(config) as llm:
+        response = llm.dialogue([{"role": "user", "content": "Hello"}])
+        print(response)
+except Exception as e:
+    print(f"Error: {e}")
+```
 
 ## License
 

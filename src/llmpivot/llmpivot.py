@@ -42,6 +42,9 @@ class LLMPivot:
         **kwargs
     ) -> Dict[str, Any]:
         self.logger.debug(f"Generate called with {len(messages)} messages")
+        self.logger.debug(f"Messages content: {messages}")
+        if tools:
+            self.logger.debug(f"Tools provided: {len(tools)} tool(s)")
         return self.llm.generate(messages, tools, **kwargs)
     
     def dialogue(
@@ -50,6 +53,7 @@ class LLMPivot:
         **kwargs
     ) -> str:
         self.logger.debug(f"Dialogue called with {len(messages)} messages")
+        self.logger.debug(f"Messages content: {messages}")
         return self.llm.dialogue(messages, **kwargs)
     
     def call_function(
@@ -59,6 +63,8 @@ class LLMPivot:
         **kwargs
     ) -> List[Dict[str, Any]]:
         self.logger.debug(f"Call function with {len(tools)} tools")
+        self.logger.debug(f"Messages content: {messages}")
+        self.logger.debug(f"Tools content: {tools}")
         return self.llm.call_function(messages, tools, **kwargs)
     
     def embedding(
@@ -68,6 +74,7 @@ class LLMPivot:
     ) -> Union[List[float], List[List[float]]]:
         text_count = 1 if isinstance(text, str) else len(text)
         self.logger.debug(f"Embedding called with {text_count} text(s)")
+        self.logger.debug(f"Text content: {text}")
         return self.llm.embedding(text, **kwargs)
     
     def perplexity(
@@ -76,6 +83,7 @@ class LLMPivot:
         **kwargs
     ) -> float:
         self.logger.debug("Perplexity called")
+        self.logger.debug(f"Text content: {text}")
         return self.llm.perplexity(text, **kwargs)
     
     def stream_generate(
@@ -85,6 +93,9 @@ class LLMPivot:
         **kwargs
     ) -> Iterator[str]:
         self.logger.debug("Stream generate called")
+        self.logger.debug(f"Messages content: {messages}")
+        if tools:
+            self.logger.debug(f"Tools provided: {len(tools)} tool(s)")
         return self.llm.stream_generate(messages, tools, **kwargs)
     
     def cleanup(self):

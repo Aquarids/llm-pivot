@@ -17,33 +17,39 @@ class ApiLLM(BaseLLM):
             timeout=config.timeout,
         )
     
+    def _merge_params(self, **kwargs) -> Dict[str, Any]:
+        params = self.config.llm_default_params.copy()
+        params.update(kwargs)
+        return params
+    
     def _generate_impl(
         self,
         messages: List[Dict[str, str]],
         tools: Optional[List[Dict[str, Any]]] = None,
         **kwargs
     ) -> Dict[str, Any]:
+        merged_params = self._merge_params(**kwargs)
+        
         params = {
             "model": self.config.model_id,
             "messages": messages,
-            "temperature": kwargs.get("temperature", self.config.temperature),
+            "temperature": merged_params.pop("temperature", 0.7),
         }
         
-        if self.config.max_tokens:
-            params["max_tokens"] = kwargs.get("max_tokens", self.config.max_tokens)
+        if "max_tokens" in merged_params:
+            params["max_tokens"] = merged_params.pop("max_tokens")
         
         if tools:
             params["tools"] = tools
-            if "tool_choice" in kwargs:
-                params["tool_choice"] = kwargs["tool_choice"]
+            if "tool_choice" in merged_params:
+                params["tool_choice"] = merged_params.pop("tool_choice")
         
-        self.logger.debug(f"Calling OpenAI API with params: model={params['model']}, temperature={params['temperature']}")
+        params.update(merged_params)
+        
         response = self.client.chat.completions.create(**params)
         
         choice = response.choices[0]
         message = choice.message
-        
-        self.logger.info(f"API response received, tokens: {response.usage.total_tokens}")
         
         return {
             "content": message.content,
@@ -76,7 +82,6 @@ class ApiLLM(BaseLLM):
         response = self._generate_impl(messages, tools=tools, **kwargs)
         
         if not response["tool_calls"]:
-            self.logger.warning("No tool calls in response")
             return []
         
         result = []
@@ -87,7 +92,6 @@ class ApiLLM(BaseLLM):
                 "arguments": tc.function.arguments,
             })
         
-        self.logger.info(f"Function calls: {len(result)} tool(s) called")
         return result
     
     def _embedding_impl(
@@ -95,21 +99,24 @@ class ApiLLM(BaseLLM):
         text: Union[str, List[str]],
         **kwargs
     ) -> Union[List[float], List[List[float]]]:
-        model = kwargs.get("model", self.config.model_id)
+        merged_params = self._merge_params(**kwargs)
+        
+        model = merged_params.pop("model", self.config.model_id)
         if not model:
             raise ValueError("Invalid Model ID")
         
         is_single = isinstance(text, str)
         texts = [text] if is_single else text
         
-        self.logger.debug(f"Calling embedding API with model: {model}, texts: {len(texts)}")
-        response = self.client.embeddings.create(
-            model=model,
-            input=texts,
-        )
+        params = {
+            "model": model,
+            "input": texts,
+        }
+        params.update(merged_params)
+        
+        response = self.client.embeddings.create(**params)
         
         embeddings = [item.embedding for item in response.data]
-        self.logger.info(f"Embeddings generated: {len(embeddings)} vector(s), dim={len(embeddings[0])}")
         
         return embeddings[0] if is_single else embeddings
     
@@ -118,14 +125,17 @@ class ApiLLM(BaseLLM):
         text: str,
         **kwargs
     ) -> float:
-        self.logger.debug("Calculating perplexity using logprobs")
-        response = self.client.chat.completions.create(
-            model=self.config.model_id,
-            messages=[{"role": "user", "content": text}],
-            max_tokens=1,
-            logprobs=True,
-            **kwargs
-        )
+        merged_params = self._merge_params(**kwargs)
+        
+        params = {
+            "model": self.config.model_id,
+            "messages": [{"role": "user", "content": text}],
+            "max_tokens": merged_params.pop("max_tokens", 1),
+            "logprobs": True,
+        }
+        params.update(merged_params)
+        
+        response = self.client.chat.completions.create(**params)
         
         if hasattr(response.choices[0], 'logprobs') and response.choices[0].logprobs:
             logprobs = response.choices[0].logprobs.content
@@ -133,10 +143,8 @@ class ApiLLM(BaseLLM):
                 log_likelihood = sum(token.logprob for token in logprobs)
                 token_count = len(logprobs)
                 ppl = 2 ** (-log_likelihood / token_count)
-                self.logger.info(f"Perplexity calculated: {ppl:.2f}")
                 return ppl
         
-        self.logger.error("Unable to calculate perplexity from response")
         raise ValueError("Unable to calculate perplexity")
     
     def stream_generate(
@@ -145,16 +153,24 @@ class ApiLLM(BaseLLM):
         tools: Optional[List[Dict[str, Any]]] = None,
         **kwargs
     ) -> Iterator[str]:
-        self.logger.debug("Starting stream generation")
+        merged_params = self._merge_params(**kwargs)
+        
         params = {
             "model": self.config.model_id,
             "messages": messages,
-            "temperature": kwargs.get("temperature", self.config.temperature),
+            "temperature": merged_params.pop("temperature", 0.7),
             "stream": True,
         }
         
+        if "max_tokens" in merged_params:
+            params["max_tokens"] = merged_params.pop("max_tokens")
+        
         if tools:
             params["tools"] = tools
+            if "tool_choice" in merged_params:
+                params["tool_choice"] = merged_params.pop("tool_choice")
+        
+        params.update(merged_params)
         
         stream = self.client.chat.completions.create(**params)
         

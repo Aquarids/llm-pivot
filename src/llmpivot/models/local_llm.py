@@ -16,25 +16,40 @@ class LocalLLM(BaseLLM):
         self.helper.start()
         self.helper.ensure_model(config.model_id)
     
+    def _merge_params(self, **kwargs) -> Dict[str, Any]:
+        params = self.config.llm_default_params.copy()
+        params.update(kwargs)
+        return params
+    
     def _generate_impl(
         self,
         messages: List[Dict[str, str]],
         tools: Optional[List[Dict[str, Any]]] = None,
         **kwargs
     ) -> Dict[str, Any]:
+        merged_params = self._merge_params(**kwargs)
+        
         options = {
-            "temperature": kwargs.get("temperature", self.config.temperature),
+            "temperature": merged_params.pop("temperature", 0.7),
         }
         
-        if self.config.max_tokens:
-            options["num_predict"] = kwargs.get("max_tokens", self.config.max_tokens)
+        if "max_tokens" in merged_params:
+            options["num_predict"] = merged_params.pop("max_tokens")
         
-        self.logger.debug(f"Calling Ollama with model: {self.config.model_id}")
+        ollama_option_keys = [
+            "top_p", "top_k", "repeat_penalty", "repeat_last_n",
+            "num_ctx", "num_batch", "num_gpu", "seed"
+        ]
+        for key in ollama_option_keys:
+            if key in merged_params:
+                options[key] = merged_params.pop(key)
+        
         response = self.helper.chat(
             model=self.config.model_id,
             messages=messages,
             tools=tools,
             options=options,
+            **merged_params
         )
         
         message = response['message']
@@ -46,7 +61,6 @@ class LocalLLM(BaseLLM):
                 "completion_tokens": response.get('eval_count', 0),
                 "total_tokens": response.get('prompt_eval_count', 0) + response.get('eval_count', 0),
             }
-            self.logger.info(f"Ollama response received, tokens: {usage['total_tokens']}")
         
         return {
             "content": message.get('content'),
@@ -74,7 +88,6 @@ class LocalLLM(BaseLLM):
         response = self._generate_impl(messages, tools=tools, **kwargs)
         
         if not response["tool_calls"]:
-            self.logger.warning("No tool calls in response")
             return []
         
         result = []
@@ -92,7 +105,6 @@ class LocalLLM(BaseLLM):
                     "arguments": tc['function']['arguments'],
                 })
         
-        self.logger.info(f"Function calls: {len(result)} tool(s) called")
         return result
     
     def _embedding_impl(
@@ -100,18 +112,21 @@ class LocalLLM(BaseLLM):
         text: Union[str, List[str]],
         **kwargs
     ) -> Union[List[float], List[List[float]]]:
-        model = kwargs.get("model", self.config.model_id or "nomic-embed-text")
+        merged_params = self._merge_params(**kwargs)
+        
+        model = merged_params.pop("model", self.config.model_id or "nomic-embed-text")
         
         is_single = isinstance(text, str)
         texts = [text] if is_single else text
         
-        self.logger.debug(f"Generating embeddings for {len(texts)} text(s)")
         embeddings = []
         for txt in texts:
-            response = self.helper.embeddings(model=model, prompt=txt)
+            response = self.helper.embeddings(
+                model=model,
+                prompt=txt,
+                **merged_params
+            )
             embeddings.append(response['embedding'])
-        
-        self.logger.info(f"Embeddings generated: {len(embeddings)} vector(s), dim={len(embeddings[0])}")
         
         return embeddings[0] if is_single else embeddings
     
@@ -120,21 +135,23 @@ class LocalLLM(BaseLLM):
         text: str,
         **kwargs
     ) -> float:
-        self.logger.debug("Calculating perplexity using Ollama generate")
+        merged_params = self._merge_params(**kwargs)
+        
+        options = {"num_predict": merged_params.pop("max_tokens", 1)}
+        
         response = self.helper.generate(
             model=self.config.model_id,
             prompt=text,
-            options={"num_predict": 1}
+            options=options,
+            **merged_params
         )
         
         if 'prompt_eval_count' in response:
             token_count = response['prompt_eval_count']
             log_likelihood = -token_count * 0.5
             ppl = math.exp(-log_likelihood / max(token_count, 1))
-            self.logger.info(f"Perplexity calculated: {ppl:.2f}")
             return ppl
         
-        self.logger.error("Unable to calculate perplexity from response")
         raise ValueError("Unable to calculate perplexity")
     
     def stream_generate(
@@ -143,10 +160,22 @@ class LocalLLM(BaseLLM):
         tools: Optional[List[Dict[str, Any]]] = None,
         **kwargs
     ) -> Iterator[str]:
-        self.logger.debug("Starting stream generation")
+        merged_params = self._merge_params(**kwargs)
+        
         options = {
-            "temperature": kwargs.get("temperature", self.config.temperature),
+            "temperature": merged_params.pop("temperature", 0.7),
         }
+        
+        if "max_tokens" in merged_params:
+            options["num_predict"] = merged_params.pop("max_tokens")
+        
+        ollama_option_keys = [
+            "top_p", "top_k", "repeat_penalty", "repeat_last_n",
+            "num_ctx", "num_batch", "num_gpu", "seed"
+        ]
+        for key in ollama_option_keys:
+            if key in merged_params:
+                options[key] = merged_params.pop(key)
         
         stream = self.helper.chat(
             model=self.config.model_id,
@@ -154,6 +183,7 @@ class LocalLLM(BaseLLM):
             tools=tools,
             stream=True,
             options=options,
+            **merged_params
         )
         
         for chunk in stream:
