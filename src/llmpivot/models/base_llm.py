@@ -62,7 +62,6 @@ class BaseLLM(ABC):
         messages: List[Dict[str, str]],
         **kwargs
     ) -> str:
-        self.logger.debug(f"Dialogue called with {len(messages)} messages")
         return self._retry_wrapper(self._dialogue_impl, messages, **kwargs)
     
     @abstractmethod
