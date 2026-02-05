@@ -83,6 +83,14 @@ with LLMPivot(config) as llm:
 
 #### Local Models (Ollama)
 
+If you want to use local LLM models, you need to install Ollama first:
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+For more installation options and platform-specific instructions, please visit [Ollama Official Website](https://ollama.com).
+
 ```python
 from llmpivot import LLMPivot, PivotConfig
 
@@ -170,25 +178,7 @@ print(tool_calls)
 
 #### Provider-Specific Features
 
-**DeepSeek Thinking Mode:**
-
-```python
-response = llm.generate(
-    messages=[{"role": "user", "content": "Solve this complex problem"}],
-    extra_body={"thinking": {"type": "enabled"}}
-)
-```
-
-**JSON Mode:**
-
-```python
-response = llm.generate(
-    messages=[{"role": "user", "content": "Generate a JSON object"}],
-    response_format={"type": "json_object"}
-)
-```
-
-**Ollama-Specific Parameters:**
+**Default Parameters:**
 
 ```python
 config = PivotConfig(
@@ -200,6 +190,15 @@ config = PivotConfig(
         "repeat_penalty": 1.1,
         "num_ctx": 4096,
     }
+)
+```
+
+**Custom Parameters:**
+
+```python
+response = llm.generate(
+    messages=[{"role": "user", "content": "Solve this complex problem"}],
+    extra_body={"thinking": {"type": "enabled"}}
 )
 ```
 
