@@ -115,13 +115,37 @@ class BaseLLM(ABC):
         self.logger.debug("Perplexity called")
         return self._perplexity_impl(text, kwargs)
     
-    def stream_generate(
+    def dialogue_stream(
         self,
         messages: List[Dict[str, str]],
         tools: Optional[List[Dict[str, Any]]] = None,
         **kwargs
     ) -> Iterator[str]:
         raise NotImplementedError
+    
+    def content_from_stream(
+        self,
+        messages: List[Dict[str, str]],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        **kwargs
+    ) -> str:
+        self.logger.debug(f"Stream to string called with {len(messages)} messages")
+        
+        try:
+            chunks = []
+            for chunk in self.dialogue_stream(messages, tools, **kwargs):
+                chunks.append(chunk)
+            
+            result = "".join(chunks)
+            self.logger.debug(f"Stream completed, total length: {len(result)}")
+            return result
+            
+        except NotImplementedError:
+            self.logger.warning("stream_generate not implemented, falling back to dialogue")
+            return self.dialogue(messages, **kwargs)
+        except Exception as e:
+            self.logger.log_exception(e)
+            raise
     
     def cleanup(self):
         pass
