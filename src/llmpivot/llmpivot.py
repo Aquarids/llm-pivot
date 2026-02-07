@@ -50,11 +50,12 @@ class LLMPivot:
     def dialogue(
         self,
         messages: List[Dict[str, str]],
+        stream: bool = False,
         **kwargs
     ) -> str:
-        self.logger.debug(f"Dialogue called with {len(messages)} messages")
+        self.logger.debug(f"Dialogue called with {len(messages)} messages (stream={stream}, params={kwargs})")
         self.logger.debug(f"Messages content: {messages}")
-        return self.llm.dialogue(messages, **kwargs)
+        return self.llm.dialogue(messages, stream, **kwargs)
     
     def call_function(
         self,

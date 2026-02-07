@@ -154,7 +154,7 @@ class LocalLLM(BaseLLM):
         
         raise ValueError("Unable to calculate perplexity")
     
-    def stream_generate(
+    def _generate_stream_impl(
         self,
         messages: List[Dict[str, str]],
         tools: Optional[List[Dict[str, Any]]] = None,

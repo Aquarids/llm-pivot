@@ -46,7 +46,6 @@ class BaseLLM(ABC):
         tools: Optional[List[Dict[str, Any]]] = None,
         **kwargs
     ) -> Dict[str, Any]:
-        self.logger.debug(f"Generate called with {len(messages)} messages")
         return self._retry_wrapper(self._generate_impl, messages, tools, **kwargs)
     
     @abstractmethod
@@ -57,12 +56,41 @@ class BaseLLM(ABC):
     ) -> str:
         pass
     
+    @abstractmethod
+    def _generate_stream_impl(
+        self,
+        messages: List[Dict[str, str]],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        **kwargs
+    ) -> Iterator[str]:
+        pass
+    
     def dialogue(
         self,
         messages: List[Dict[str, str]],
+        stream: bool = False,
         **kwargs
     ) -> str:
-        return self._retry_wrapper(self._dialogue_impl, messages, **kwargs)
+        if stream:
+            try:
+                chunks = []
+                for chunk in self._generate_stream_impl(messages, tools=None, **kwargs):
+                    chunks.append(chunk)
+                result = "".join(chunks)
+                return result
+            except Exception as e:
+                self.logger.log_exception(e)
+                return self._retry_wrapper(self._dialogue_impl, messages, **kwargs)
+        else:
+            return self._retry_wrapper(self._dialogue_impl, messages, **kwargs)
+    
+    def stream_generate(
+        self,
+        messages: List[Dict[str, str]],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        **kwargs
+    ) -> Iterator[str]:
+        return self._generate_stream_impl(messages, tools, **kwargs)
     
     @abstractmethod
     def _call_function_impl(
@@ -79,7 +107,6 @@ class BaseLLM(ABC):
         tools: List[Dict[str, Any]],
         **kwargs
     ) -> List[Dict[str, Any]]:
-        self.logger.debug(f"Call function with {len(tools)} tools")
         return self._retry_wrapper(self._call_function_impl, messages, tools, **kwargs)
     
     @abstractmethod
@@ -95,8 +122,6 @@ class BaseLLM(ABC):
         text: Union[str, List[str]],
         **kwargs
     ) -> Union[List[float], List[List[float]]]:
-        text_count = 1 if isinstance(text, str) else len(text)
-        self.logger.debug(f"Embedding called with {text_count} text(s)")
         return self._embedding_impl(text, kwargs)
     
     @abstractmethod
@@ -112,40 +137,7 @@ class BaseLLM(ABC):
         text: str,
         **kwargs
     ) -> float:
-        self.logger.debug("Perplexity called")
         return self._perplexity_impl(text, kwargs)
-    
-    def dialogue_stream(
-        self,
-        messages: List[Dict[str, str]],
-        tools: Optional[List[Dict[str, Any]]] = None,
-        **kwargs
-    ) -> Iterator[str]:
-        raise NotImplementedError
-    
-    def content_from_stream(
-        self,
-        messages: List[Dict[str, str]],
-        tools: Optional[List[Dict[str, Any]]] = None,
-        **kwargs
-    ) -> str:
-        self.logger.debug(f"Stream to string called with {len(messages)} messages")
-        
-        try:
-            chunks = []
-            for chunk in self.dialogue_stream(messages, tools, **kwargs):
-                chunks.append(chunk)
-            
-            result = "".join(chunks)
-            self.logger.debug(f"Stream completed, total length: {len(result)}")
-            return result
-            
-        except NotImplementedError:
-            self.logger.warning("stream_generate not implemented, falling back to dialogue")
-            return self.dialogue(messages, **kwargs)
-        except Exception as e:
-            self.logger.log_exception(e)
-            raise
     
     def cleanup(self):
         pass

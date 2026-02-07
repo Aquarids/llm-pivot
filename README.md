@@ -131,6 +131,14 @@ response = llm.generate(
     temperature=0.8,
     max_tokens=2000,
 )
+
+# Use streaming internally (still returns complete string)
+response = llm.dialogue(
+    messages=[{"role": "user", "content": "Explain quantum computing"}],
+    stream=True,
+    temperature=0.7
+)
+print(response)
 ```
 
 #### Streaming Response
@@ -138,6 +146,7 @@ response = llm.generate(
 ```python
 messages = [{"role": "user", "content": "Write a short story"}]
 
+# Stream generation for chunk-by-chunk processing
 for chunk in llm.stream_generate(messages, temperature=0.7):
     print(chunk, end='', flush=True)
 ```
@@ -263,7 +272,11 @@ response = llm.generate(messages, tools=None, **kwargs)
 # Returns: {"content": str, "role": str, "tool_calls": list, "usage": dict, ...}
 
 # Simple dialogue (returns only content string)
-content = llm.dialogue(messages, **kwargs)
+content = llm.dialogue(messages, stream=False, **kwargs)
+# Returns: str
+
+# Dialogue with streaming API (uses streaming internally, returns complete string)
+content = llm.dialogue(messages, stream=True, **kwargs)
 # Returns: str
 
 # Function calling
@@ -304,6 +317,12 @@ enable_log = false
 
 ### Running Tests
 
+Local build in editable mode
+```bash
+pip install -e .
+```
+
+Then run tests
 ```bash
 # All tests
 pytest
