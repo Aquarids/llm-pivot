@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional, Union, Iterator
 from .config import PivotConfig, ModelType
-from .models import ApiLLM, LocalLLM, BaseLLM
+from .llm import ApiLLM, LocalLLM, BaseLLM
 from .helper import Logger
 
 class LLMPivot:

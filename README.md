@@ -4,11 +4,9 @@ A unified interface for interacting with both online API-based and local LLM mod
 
 ## Overview
 
-LLM Pivot provides a consistent API for working with different types of language models:
+LLM Pivot provides a consistent API for working with different types of models:
 - **Online Models**: OpenAI, Anthropic, and other API-based services
-- **Local Models**: Ollama and other locally-hosted models
-
-This project is private and requires collaboration access. Contact the repository administrator for access.
+- **Local Models**: Ollama (LLM), Infinity (Embedding / Reranking), and other locally-hosted models
 
 ## Quick Start
 
@@ -61,7 +59,7 @@ pip install -e /path/to/llm-pivot
 
 ### Basic Usage
 
-#### Online API Models
+#### Online LLM API Models
 
 ```python
 from llmpivot import LLMPivot, PivotConfig
@@ -81,7 +79,7 @@ with LLMPivot(config) as llm:
     print(response)
 ```
 
-#### Local Models (Ollama)
+#### Local LLM Models (Ollama)
 
 ```python
 from llmpivot import LLMPivot, PivotConfig
@@ -97,6 +95,53 @@ with LLMPivot(config) as llm:
     response = llm.dialogue(messages)
     print(response)
 ```
+
+#### Embedding Models
+
+```python
+from llmpivot import EmbedPivot, EmbedConfig
+
+config = EmbedConfig(
+    model_type="online",
+    model_id="Qwen3-Embedding-0.6B",
+    api_key="sk-xxx",
+    base_url="https://api.example.com"
+)
+
+with EmbedPivot(config) as embed:
+    vector = embed.embedding("Hello, world!")
+    print(len(vector))  # Vector dimension
+
+    vectors = embed.embedding(["Hello", "World"])
+    print(len(vectors))  # 2
+```
+
+#### Rerank Models
+
+```python
+from llmpivot import RerankPivot, RerankConfig
+
+config = RerankConfig(
+    model_type="online",
+    model_id="bce-reranker-base_v1",
+    api_key="sk-xxx",
+    base_url="https://api.example.com"
+)
+
+with RerankPivot(config) as rerank:
+    documents = [
+        "Python is a programming language.",
+        "The Eiffel Tower is in Paris.",
+        "Machine learning is a subset of AI.",
+    ]
+    results = rerank.rerank_documents("What is machine learning?", documents)
+    print(results)
+    # [{"index": 2, "text": "...", "relevance_score": 0.98}, ...]
+
+    scores = rerank.similarity("AI includes machine learning.", documents)
+    print(scores)  # [0.72, 0.11, 0.95]
+```
+
 
 ### Advanced Usage
 
@@ -243,6 +288,37 @@ print(len(embeddings[0]))  # Vector dimension
 | enable_log | bool | True | Enable logging |
 | log_level | str | None | Log level (DEBUG, INFO, WARNING, ERROR) |
 
+#### EmbedConfig Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| model_type | str | "online" | "online" or "local" |
+| model_id | str | "Qwen3-Embedding-0.6B" | Model identifier |
+| api_key | str | None | API key for online models |
+| base_url | str | None | API base URL or Infinity host |
+| timeout | int | 60 | Request timeout in seconds |
+| max_retries | int | 1 | Maximum retry attempts |
+| embed_default_params | dict | {"encoding_format": "float"} | Default parameters for embedding calls |
+| log_env | str | "local" | Log environment identifier |
+| enable_log | bool | True | Enable logging |
+| log_level | str | None | Log level (DEBUG, INFO, WARNING, ERROR) |
+
+#### RerankConfig Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| model_type | str | "online" | "online" or "local" |
+| model_id | str | "bce-reranker-base_v1" | Model identifier |
+| api_key | str | None | API key for online models |
+| base_url | str | None | API base URL or Infinity host |
+| timeout | int | 60 | Request timeout in seconds |
+| max_retries | int | 1 | Maximum retry attempts |
+| rerank_default_params | dict | {"top_n": 5, "normalize": true} | Default parameters for rerank calls |
+| log_env | str | "local" | Log environment identifier |
+| enable_log | bool | True | Enable logging |
+| log_level | str | None | Log level (DEBUG, INFO, WARNING, ERROR) |
+
+
 #### Common LLM Parameters (via llm_default_params or kwargs)
 
 **Universal Parameters:**
@@ -313,6 +389,29 @@ enable_log = false
 model_id = qwen2.5:7b
 base_url = http://localhost:11434
 enable_log = false
+
+[online_embed]
+model_id = Qwen3-Embedding-0.6B
+api_key = sk-your-api-key
+base_url = https://api.example.com
+enable_log = false
+
+[local_embed]
+model_id = Qwen3-Embedding-0.6B
+base_url = http://localhost:7997
+enable_log = false
+
+[online_rerank]
+model_id = bce-reranker-base_v1
+api_key = sk-your-api-key
+base_url = https://api.example.com
+enable_log = false
+
+[local_rerank]
+model_id = bce-reranker-base_v1
+base_url = http://localhost:7997
+enable_log = false
+
 ```
 
 ### Running Tests
