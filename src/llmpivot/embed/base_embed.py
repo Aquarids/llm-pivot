@@ -54,7 +54,9 @@ class BaseEmbed(ABC):
 
     def embedding(
         self,
-        input: str,
+        input: str | List[str],
         **kwargs,
-    ) -> List[float]:
+    ) -> List[float] | List[List[float]]:
+        if isinstance(input, list):
+            return self.batch_embedding(input, **kwargs)
         return self.batch_embedding([input], **kwargs)[0]
