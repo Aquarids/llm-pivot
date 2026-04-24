@@ -29,11 +29,11 @@ class RerankPivot:
                 self.logger.error("API key is required for online model")
                 raise ValueError("api_key is required for online model")
             self.logger.info(f"Creating ApiRerank instance, base_url: {self.config.base_url}")
-            return ApiRerank(self.config)
+            return ApiRerank(self.config, self.logger)
 
         elif self.config.model_type == ModelType.LOCAL:
             self.logger.info(f"Creating LocalRerank instance, base_url: {self.config.base_url}")
-            return LocalRerank(self.config)
+            return LocalRerank(self.config, self.logger)
 
         else:
             self.logger.error(f"Unknown model_type: {self.config.model_type}")

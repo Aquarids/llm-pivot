@@ -30,12 +30,6 @@ class InfinityHelper:
             self.logger.info("Infinity server is already running")
             return
 
-        # 检查是否已经有其他进程在运行
-        if self.is_running_by_check():
-            self.logger.info("Infinity server is already running on this port")
-            self._process = None  # 不持有进程，不负责关闭
-            return
-
         if not self.model_id:
             raise ValueError("model_id is required to start Infinity server")
 
@@ -57,14 +51,6 @@ class InfinityHelper:
         )
 
         self._wait_until_ready()
-
-    def is_running_by_check(self) -> bool:
-        """通过 HTTP 检查服务是否已经在运行"""
-        try:
-            resp = self._client.get("/health")
-            return resp.status_code == 200
-        except Exception:
-            return False
 
     def _parse_port(self) -> int:
         try:
@@ -92,7 +78,6 @@ class InfinityHelper:
         raise TimeoutError(f"Infinity server did not become ready within {timeout}s")
 
     def stop(self):
-        # 只有自己启动的进程才负责关闭
         if self._process:
             self.logger.info("Stopping Infinity server")
             self._process.terminate()
