@@ -29,11 +29,11 @@ class EmbedPivot:
                 self.logger.error("API key is required for online model")
                 raise ValueError("api_key is required for online model")
             self.logger.info(f"Creating ApiEmbed instance, base_url: {self.config.base_url}")
-            return ApiEmbed(self.config, self.logger)
+            return ApiEmbed(self.config)
 
         elif self.config.model_type == ModelType.LOCAL:
             self.logger.info(f"Creating LocalEmbed instance, base_url: {self.config.base_url}")
-            return LocalEmbed(self.config, self.logger)
+            return LocalEmbed(self.config)
 
         else:
             self.logger.error(f"Unknown model_type: {self.config.model_type}")
