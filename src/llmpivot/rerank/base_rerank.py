@@ -14,7 +14,7 @@ class BaseRerank(ABC):
         self.logger = Logger(
             name=self.__class__.__name__,
             env=config.log_env,
-            enable=config.enable_log,
+            enabled=config.enable_log,
             level=config.log_level,
         )
 
@@ -83,3 +83,6 @@ class BaseRerank(ABC):
                     time.sleep(1.0 * (attempt + 1))
 
         raise RuntimeError(f"Similarity failed after {self.config.max_retries + 1} attempts") from last_exc
+
+    def cleanup(self):
+        pass

@@ -61,3 +61,6 @@ class ApiRerank(BaseRerank):
         response = self.client.post("/v1/sentence-similarity", json=payload)
         response.raise_for_status()
         return response.json()
+
+    def cleanup(self):
+        self.client.close()

@@ -14,7 +14,7 @@ class BaseEmbed(ABC):
         self.logger = Logger(
             name=self.__class__.__name__,
             env=config.log_env,
-            enable=config.enable_log,
+            enabled=config.enable_log,
             level=config.log_level,
         )
 
@@ -60,3 +60,6 @@ class BaseEmbed(ABC):
         if isinstance(input, list):
             return self.batch_embedding(input, **kwargs)
         return self.batch_embedding([input], **kwargs)[0]
+
+    def cleanup(self):
+        pass

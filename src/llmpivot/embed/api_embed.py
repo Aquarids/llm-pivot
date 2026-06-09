@@ -29,3 +29,6 @@ class ApiEmbed(BaseEmbed):
         )
         sorted_data = sorted(response.data, key=lambda x: x.index)
         return [item.embedding for item in sorted_data]
+
+    def cleanup(self):
+        self.client.close()

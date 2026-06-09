@@ -28,8 +28,11 @@ class LocalEmbed(BaseEmbed):
             **kwargs,
         )
 
+    def cleanup(self):
+        self.infinity.stop()
+
     def __del__(self):
         try:
-            self.infinity.stop()
+            self.cleanup()
         except Exception:
             pass
