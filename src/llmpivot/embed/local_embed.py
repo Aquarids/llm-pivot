@@ -11,8 +11,9 @@ class LocalEmbed(BaseEmbed):
     def __init__(self, config: EmbedConfig):
         super().__init__(config)
         self.infinity = InfinityHelper(
+            logger=self.logger,
+            host=config.base_url,
             model_id=config.model_id,
-            base_url=config.base_url,
         )
         self.infinity.start()
 
