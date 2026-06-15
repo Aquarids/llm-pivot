@@ -10,6 +10,7 @@ class ApiLLM(BaseLLM):
     def __init__(self, config: PivotConfig, logger: Logger):
         super().__init__(config, logger)
         self.logger.info(f"Initializing ApiLLM with model: {config.model_id}")
+        self.last_stream_usage = None
 
         self.client = OpenAI(
             api_key=config.api_key,
@@ -21,6 +22,20 @@ class ApiLLM(BaseLLM):
         params = self.config.llm_default_params.copy()
         params.update(kwargs)
         return params
+
+    def _usage_to_dict(self, usage: Any) -> Dict[str, int]:
+        if isinstance(usage, dict):
+            return {
+                "prompt_tokens": usage.get("prompt_tokens", 0),
+                "completion_tokens": usage.get("completion_tokens", 0),
+                "total_tokens": usage.get("total_tokens", 0),
+            }
+
+        return {
+            "prompt_tokens": usage.prompt_tokens,
+            "completion_tokens": usage.completion_tokens,
+            "total_tokens": usage.total_tokens,
+        }
     
     def _generate_impl(
         self,
@@ -161,6 +176,8 @@ class ApiLLM(BaseLLM):
             "temperature": merged_params.pop("temperature", 0.7),
             "stream": True,
         }
+        stream_options = merged_params.pop("stream_options", {})
+        params["stream_options"] = {"include_usage": True, **stream_options}
         
         if "max_tokens" in merged_params:
             params["max_tokens"] = merged_params.pop("max_tokens")
@@ -172,9 +189,14 @@ class ApiLLM(BaseLLM):
         
         params.update(merged_params)
         
+        self.last_stream_usage = None
         stream = self.client.chat.completions.create(**params)
         
         for chunk in stream:
+            usage = getattr(chunk, "usage", None)
+            if usage is not None:
+                self.last_stream_usage = self._usage_to_dict(usage)
+
             if (chunk.choices 
                 and len(chunk.choices) > 0 
                 and chunk.choices[0].delta.content):

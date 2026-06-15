@@ -56,6 +56,16 @@ class LLMPivot:
         self.logger.debug(f"Dialogue called with {len(messages)} messages (stream={stream}, params={kwargs})")
         self.logger.debug(f"Messages content: {messages}")
         return self.llm.dialogue(messages, stream, **kwargs)
+
+    def dialogue_with_usage(
+        self,
+        messages: List[Dict[str, str]],
+        stream: bool = False,
+        **kwargs
+    ) -> Dict[str, Any]:
+        self.logger.debug(f"Dialogue with usage called with {len(messages)} messages (stream={stream}, params={kwargs})")
+        self.logger.debug(f"Messages content: {messages}")
+        return self.llm.dialogue_with_usage(messages, stream, **kwargs)
     
     def call_function(
         self,

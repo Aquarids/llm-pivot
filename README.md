@@ -355,6 +355,10 @@ content = llm.dialogue(messages, stream=False, **kwargs)
 content = llm.dialogue(messages, stream=True, **kwargs)
 # Returns: str
 
+# Dialogue with content and usage details
+response = llm.dialogue_with_usage(messages, stream=True, **kwargs)
+# Returns: {"content": str, "usage": dict | None}
+
 # Function calling
 tool_calls = llm.call_function(messages, tools, **kwargs)
 # Returns: [{"id": str, "name": str, "arguments": str}, ...]

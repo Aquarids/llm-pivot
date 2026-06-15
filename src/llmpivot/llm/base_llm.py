@@ -83,6 +83,30 @@ class BaseLLM(ABC):
                 return self._retry_wrapper(self._dialogue_impl, messages, **kwargs)
         else:
             return self._retry_wrapper(self._dialogue_impl, messages, **kwargs)
+
+    def dialogue_with_usage(
+        self,
+        messages: List[Dict[str, str]],
+        stream: bool = False,
+        **kwargs
+    ) -> Dict[str, Any]:
+        if stream:
+            try:
+                chunks = []
+                for chunk in self._generate_stream_impl(messages, tools=None, **kwargs):
+                    chunks.append(chunk)
+                return {
+                    "content": "".join(chunks),
+                    "usage": getattr(self, "last_stream_usage", None),
+                }
+            except Exception as e:
+                self.logger.log_exception(e)
+
+        response = self._retry_wrapper(self._generate_impl, messages, None, **kwargs)
+        return {
+            "content": response["content"] or "",
+            "usage": response.get("usage"),
+        }
     
     def stream_generate(
         self,
