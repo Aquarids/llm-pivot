@@ -59,7 +59,7 @@ pip install -e /path/to/llm-pivot
 
 ### Basic Usage
 
-#### Online LLM API Models
+#### Online LLM API Models (Chat Completions)
 
 ```python
 from llmpivot import LLMPivot, PivotConfig
@@ -67,6 +67,7 @@ from llmpivot import LLMPivot, PivotConfig
 # Basic configuration
 config = PivotConfig(
     model_type="online",
+    api_type="chat_completions",  # Default
     model_id="gpt-4",
     api_key="sk-xxx",
     base_url="https://api.openai.com/v1/"
@@ -78,6 +79,77 @@ with LLMPivot(config) as llm:
     response = llm.dialogue(messages)
     print(response)
 ```
+
+#### OpenAI Responses API
+
+Set `api_type="responses"` to use OpenAI's recommended `/v1/responses`
+endpoint. The public generation, function-calling, and streaming interfaces
+remain unchanged.
+
+```python
+from llmpivot import LLMPivot, PivotConfig
+
+config = PivotConfig(
+    model_type="online",
+    api_type="responses",
+    model_id="gpt-5.4",
+    api_key="sk-xxx",
+    base_url="https://api.openai.com/v1",
+)
+
+with LLMPivot(config) as llm:
+    result = llm.generate([{"role": "user", "content": "Hello"}])
+    print(result["content"])
+    print(result["response_id"])
+```
+
+Responses mode provides the following compatibility mappings:
+
+| Public parameter | Responses API parameter |
+|------------------|-------------------------|
+| `messages` | `input` |
+| `max_tokens` | `max_output_tokens` |
+| `response_format` | `text.format` |
+| `reasoning_effort` | `reasoning.effort` |
+| Chat-style function tools | Responses-style function tools |
+
+The normalized `generate()` result keeps the existing LLM Pivot fields and
+adds `response_id`:
+
+```python
+{
+    "content": "Hello!",
+    "role": "assistant",
+    "tool_calls": None,
+    "finish_reason": "completed",
+    "usage": {
+        "prompt_tokens": 8,
+        "completion_tokens": 2,
+        "total_tokens": 10,
+    },
+    "model": "gpt-5.4",
+    "response_id": "resp_...",
+}
+```
+
+To chain stored responses, pass the returned ID on the next request:
+
+```python
+first = llm.generate(
+    [{"role": "user", "content": "What is the capital of New Zealand?"}]
+)
+
+second = llm.generate(
+    [{"role": "user", "content": "What is its population?"}],
+    previous_response_id=first["response_id"],
+)
+```
+
+Responses are stored by default by OpenAI. Pass `store=False` when stateless
+operation is required. `perplexity()` remains a Chat Completions-only operation
+because it requires token log probabilities.
+
+See the official [OpenAI Responses migration guide](https://developers.openai.com/api/docs/guides/migrate-to-responses).
 
 #### Local LLM Models (Ollama)
 
@@ -278,12 +350,13 @@ print(len(embeddings[0]))  # Vector dimension
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | model_type | str | "online" | "online" or "local" |
+| api_type | str | "chat_completions" | Online generation API: "chat_completions" or "responses" |
 | model_id | str | "gpt-4" | Model identifier |
 | api_key | str | None | API key for online models |
 | base_url | str | None | API base URL or Ollama host |
 | timeout | int | 60 | Request timeout in seconds |
 | max_retries | int | 1 | Maximum retry attempts |
-| llm_default_params | dict | {"temperature": 0.7} | Default parameters for LLM calls |
+| llm_default_params | dict | {} | Default parameters for LLM calls |
 | log_env | str | "local" | Log environment identifier |
 | enable_log | bool | True | Enable logging |
 | log_level | str | None | Log level (DEBUG, INFO, WARNING, ERROR) |
@@ -332,6 +405,13 @@ print(len(embeddings[0]))  # Vector dimension
 - `response_format` (dict): Response format specification
 - `extra_body` (dict): Provider-specific parameters
 
+**Responses API compatibility:**
+- `previous_response_id` (str): Chain a request to an earlier stored response
+- `store` (bool): Enable or disable response storage
+- `reasoning_effort` (str): Mapped to `reasoning.effort`
+- `response_format` (dict): Mapped to `text.format`
+- `max_tokens` (int): Mapped to `max_output_tokens`
+
 **Local (Ollama):**
 - `top_k` (int): Top-k sampling
 - `repeat_penalty` (float): Repetition penalty
@@ -373,7 +453,7 @@ embedding = llm.embedding(text, **kwargs)
 
 # Perplexity calculation
 ppl = llm.perplexity(text, **kwargs)
-# Returns: float
+# Returns: float (Chat Completions only)
 ```
 
 ## Development
@@ -384,9 +464,10 @@ Create `tests/local_config.ini`:
 
 ```ini
 [online]
-model_id = gpt-4
+model_id = gpt-5.4
 api_key = sk-your-api-key
-base_url = https://api.openai.com/v1/
+base_url = https://api.openai.com/v1
+api_type = responses
 enable_log = false
 
 [local]

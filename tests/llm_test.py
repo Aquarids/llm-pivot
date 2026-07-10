@@ -24,6 +24,7 @@ test_config = load_test_config()
 
 llm = LLMPivot(PivotConfig(
     model_type="online",
+    api_type="responses",
     model_id=test_config['online']['model_id'],
     api_key=test_config['online']['api_key'],
     base_url=test_config['online']['base_url'],

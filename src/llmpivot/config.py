@@ -7,10 +7,15 @@ class ModelType(str, Enum):
     ONLINE = "online"
     LOCAL = "local"
 
+class LLMApiType(str, Enum):
+    CHAT_COMPLETIONS = "chat_completions"
+    RESPONSES = "responses"
+
 class PivotConfig(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
     
     model_type: ModelType = Field(default=ModelType.ONLINE)
+    api_type: LLMApiType = Field(default=LLMApiType.CHAT_COMPLETIONS)
     
     model_id: str = Field(default="gpt-4")
     api_key: Optional[str] = Field(default=None)
@@ -20,9 +25,7 @@ class PivotConfig(BaseModel):
     max_retries: int = Field(default=1, ge=0)
     
     llm_default_params: Dict[str, Any] = Field(
-        default_factory=lambda: {
-            "temperature": 0.7,
-        }
+        default_factory=dict
     )
     
     log_env: str = Field(default="local")
