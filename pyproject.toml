@@ -3,7 +3,7 @@ requires = ["setuptools>=77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "llm-pivot"
+name = "aq-llm-pivot"
 dynamic = ["version"]
 description = "A unified LLM wrapper for online APIs and local models"
 readme = "README.md"

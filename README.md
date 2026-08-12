@@ -15,13 +15,13 @@ LLM Pivot provides a consistent API for working with different types of models:
 Install the latest release from PyPI:
 
 ```bash
-pip install llm-pivot
+pip install aq-llm-pivot
 ```
 
 To install this release explicitly:
 
 ```bash
-pip install llm-pivot==0.1.0
+pip install aq-llm-pivot==0.1.0
 ```
 
 #### Local Development
@@ -524,7 +524,7 @@ exactly match the version in `src/llmpivot/__version__.py` with a leading `v`.
 
 1. Create a `pypi` environment in the GitHub repository settings.
 2. In PyPI's publishing settings, add a pending GitHub publisher with project
-   name `llm-pivot`, owner `Aquarids`, repository `llm-pivot`, workflow
+   name `aq-llm-pivot`, owner `Aquarids`, repository `llm-pivot`, workflow
    `release.yml`, and environment `pypi`.
 
 No PyPI API token or GitHub secret is required.
@@ -535,7 +535,7 @@ Update the single version source:
 
 ```python
 # src/llmpivot/__version__.py
-__version__ = "0.1.1"
+__version__ = "0.1.0"
 ```
 
 Run the tests and build checks, then commit and push the change:
@@ -545,15 +545,15 @@ python -m pytest tests/unit/test_responses_api.py
 python -m build
 python -m twine check dist/*
 git add src/llmpivot/__version__.py
-git commit -m "release: v0.1.1"
+git commit -m "release: v0.1.0"
 git push origin main
 ```
 
 Create and push the matching annotated tag:
 
 ```bash
-git tag -a v0.1.1 -m "Release v0.1.1"
-git push origin v0.1.1
+git tag -a v0.1.0 -m "Release v0.1.0"
+git push origin v0.1.0
 ```
 
 The workflow validates the version/tag match and publishes the wheel and source
