@@ -1,18 +1,19 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm-pivot"
-version = "0.0.9"
+dynamic = ["version"]
 description = "A unified LLM wrapper for online APIs and local models"
 readme = "README.md"
-requires-python = ">=3.7"
-license = {text = "MIT"}
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     {name = "aquarids", email = "aquarids.moe@gmail.com"}
 ]
-keywords = ["llm", "wrapper"]
+keywords = ["llm", "openai", "ollama", "embedding", "reranking", "wrapper"]
 
 dependencies = [
     "openai>=1.66.0",
@@ -29,14 +30,15 @@ dev = [
 ]
 
 [project.urls]
-Repository = "https://github.com/yourusername/llm-pivot"
-Documentation = "https://github.com/yourusername/llm-pivot/blob/main/README.md"
+Repository = "https://github.com/Aquarids/llm-pivot"
+Documentation = "https://github.com/Aquarids/llm-pivot#readme"
+Issues = "https://github.com/Aquarids/llm-pivot/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.setuptools.package-data]
-atlas = ["py.typed"]
+[tool.setuptools.dynamic]
+version = {attr = "llmpivot.__version__.__version__"}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

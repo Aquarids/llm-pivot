@@ -5,36 +5,26 @@ A unified interface for interacting with both online API-based and local LLM mod
 ## Overview
 
 LLM Pivot provides a consistent API for working with different types of models:
-- **Online Models**: OpenAI, Anthropic, and other API-based services
+- **Online Models**: OpenAI and OpenAI-compatible API services
 - **Local Models**: Ollama (LLM), Infinity (Embedding / Reranking), and other locally-hosted models
 
 ## Quick Start
 
 ### Installation
 
-#### Method 1: Git Dependency (Recommended)
-
-Check the [Releases](https://github.com/Aquarids/llm-pivot/releases) page for the latest version.
-
-**For SSH access (private repository):**
-
-Add to your `requirements.txt`:
-
-```txt
-llm-pivot @ git+ssh://git@github.com/Aquarids/llm-pivot.git@v0.0.1
-```
-
-Or install it directly:
+Install the latest release from PyPI:
 
 ```bash
-pip install git+ssh://git@github.com/Aquarids/llm-pivot.git@v0.0.1
+pip install llm-pivot
 ```
 
-**Prerequisites:**
-- Ensure your SSH key is added to GitHub: [GitHub SSH Keys](https://github.com/settings/keys)
-- Test SSH connection: `ssh -T git@github.com`
+To install this release explicitly:
 
-#### Method 2: Local Development
+```bash
+pip install llm-pivot==0.1.0
+```
+
+#### Local Development
 
 ```bash
 # Clone the repository
@@ -526,32 +516,49 @@ pytest -v
 
 ### Release Guide
 
-#### Update Version Number
+Releases are built and uploaded to PyPI by
+`.github/workflows/release.yml` using PyPI Trusted Publishing. The Git tag must
+exactly match the version in `src/llmpivot/__version__.py` with a leading `v`.
 
-Edit `pyproject.toml`:
+#### One-time PyPI Setup
 
-```toml
-[project]
-name = "llm-pivot"
-version = "0.2.0"
+1. Create a `pypi` environment in the GitHub repository settings.
+2. In PyPI's publishing settings, add a pending GitHub publisher with project
+   name `llm-pivot`, owner `Aquarids`, repository `llm-pivot`, workflow
+   `release.yml`, and environment `pypi`.
+
+No PyPI API token or GitHub secret is required.
+
+#### Publish a Release
+
+Update the single version source:
+
+```python
+# src/llmpivot/__version__.py
+__version__ = "0.1.1"
 ```
 
-#### Create Git Tag
+Run the tests and build checks, then commit and push the change:
 
 ```bash
-# Create annotated tag
-git tag -a v0.2.0 -m "Release version 0.2.0"
-
-# Push tag to remote
-git push origin v0.2.0
+python -m pytest tests/unit/test_responses_api.py
+python -m build
+python -m twine check dist/*
+git add src/llmpivot/__version__.py
+git commit -m "release: v0.1.1"
+git push origin main
 ```
 
-#### Create GitHub Release
+Create and push the matching annotated tag:
 
-Go to GitHub repository → Releases → Create a new release:
-- Tag: `v0.2.0`
-- Title: `Release v0.2.0`
-- Description: Add changelog and release notes
+```bash
+git tag -a v0.1.1 -m "Release v0.1.1"
+git push origin v0.1.1
+```
+
+The workflow validates the version/tag match and publishes the wheel and source
+distribution. A version already uploaded to PyPI cannot be overwritten; publish
+a new version if a release needs correction.
 
 ## Examples
 
@@ -608,4 +615,4 @@ except Exception as e:
 
 ## License
 
-Internal use only. Not for public distribution.
+LLM Pivot is released under the [MIT License](LICENSE).

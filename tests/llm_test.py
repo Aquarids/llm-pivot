@@ -30,7 +30,7 @@ llm = LLMPivot(PivotConfig(
     base_url=test_config['online']['base_url'],
     llm_default_params={
         "temperature": 1.0,
-        "extra_body": {"thinking": {"type": "disabled"}}
+        # "extra_body": {"thinking": {"type": "disabled"}}
     }
 ))
 
