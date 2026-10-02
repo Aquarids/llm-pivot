@@ -10,6 +10,7 @@ class ModelType(str, Enum):
 class LLMApiType(str, Enum):
     CHAT_COMPLETIONS = "chat_completions"
     RESPONSES = "responses"
+    ANTHROPIC = "anthropic"
 
 class PivotConfig(BaseModel):
     model_config = ConfigDict(use_enum_values=True)

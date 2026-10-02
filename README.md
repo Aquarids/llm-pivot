@@ -141,6 +141,49 @@ because it requires token log probabilities.
 
 See the official [OpenAI Responses migration guide](https://developers.openai.com/api/docs/guides/migrate-to-responses).
 
+#### Anthropic Messages API
+
+Set `api_type="anthropic"` to talk to Anthropic-protocol endpoints
+(`/v1/messages`). The public generation, function-calling, and streaming
+interfaces remain unchanged.
+
+```python
+from llmpivot import LLMPivot, PivotConfig
+
+config = PivotConfig(
+    model_type="online",
+    api_type="anthropic",
+    model_id="GLM-5.3-Flash",
+    api_key="xxx",
+    base_url="http://localhost:18400/v1",
+)
+
+with LLMPivot(config) as llm:
+    result = llm.generate([{"role": "user", "content": "Hello"}])
+    print(result["content"])
+```
+
+Anthropic mode authenticates with a bearer token (`Authorization: Bearer`) and
+performs the following conversions so callers keep using the OpenAI-style
+shapes:
+
+| Public parameter / result | Anthropic Messages API equivalent |
+|---------------------------|-----------------------------------|
+| `system` role messages | top-level `system` parameter |
+| `max_tokens` | `max_tokens` (defaults to 4096 when unset) |
+| Chat-style function tools | `tools` with `input_schema` |
+| `tool` role messages | `tool_result` content blocks |
+| Assistant `tool_calls` | `tool_use` content blocks |
+| `stop_reason` | OpenAI-style `finish_reason` |
+| `usage.input_tokens` (+ cache tokens) | `usage.prompt_tokens` |
+
+`thinking` content blocks emitted by reasoning models are skipped: `generate()`
+returns only the text blocks, and streaming yields only `text_delta` events.
+`perplexity()` and `embedding()` are not available in Anthropic mode because
+the protocol does not provide token log probabilities or an embeddings
+endpoint. A trailing `/v1` on `base_url` is stripped automatically, so
+OpenAI-style base URLs work unmodified.
+
 #### Local LLM Models (Ollama)
 
 ```python
@@ -340,7 +383,7 @@ print(len(embeddings[0]))  # Vector dimension
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | model_type | str | "online" | "online" or "local" |
-| api_type | str | "chat_completions" | Online generation API: "chat_completions" or "responses" |
+| api_type | str | "chat_completions" | Online generation API: "chat_completions", "responses" or "anthropic" |
 | model_id | str | "gpt-4" | Model identifier |
 | api_key | str | None | API key for online models |
 | base_url | str | None | API base URL or Ollama host |
@@ -401,6 +444,11 @@ print(len(embeddings[0]))  # Vector dimension
 - `reasoning_effort` (str): Mapped to `reasoning.effort`
 - `response_format` (dict): Mapped to `text.format`
 - `max_tokens` (int): Mapped to `max_output_tokens`
+
+**Anthropic Messages API compatibility:**
+- `max_tokens` (int): Passed through, defaults to 4096 when unset
+- `tool_choice` (str/dict): "auto"/"none"/"required" and function dicts are mapped
+- All other parameters are forwarded to the `/v1/messages` endpoint as-is
 
 **Local (Ollama):**
 - `top_k` (int): Top-k sampling
@@ -541,7 +589,7 @@ __version__ = "0.1.0"
 Run the tests and build checks, then commit and push the change:
 
 ```bash
-python -m pytest tests/unit/test_responses_api.py
+python -m pytest tests/unit/test_responses_api.py tests/unit/test_anthropic_api.py
 python -m build
 python -m twine check dist/*
 git add src/llmpivot/__version__.py

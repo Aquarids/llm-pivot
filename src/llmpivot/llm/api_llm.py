@@ -1,20 +1,38 @@
+import json
 from typing import List, Dict, Any, Optional, Union, Iterator
 from openai import OpenAI
+from anthropic import Anthropic
 
 from .base_llm import BaseLLM
 from ..helper import Logger
 from ..config import LLMApiType, PivotConfig
 
 class ApiLLM(BaseLLM):
-    
+
     def __init__(self, config: PivotConfig, logger: Logger):
         super().__init__(config, logger)
         self.logger.info(f"Initializing ApiLLM with model: {config.model_id}")
         self.last_stream_usage = None
 
-        self.client = OpenAI(
-            api_key=config.api_key,
-            base_url=config.base_url,
+        if self._is_anthropic():
+            self.client = self._init_anthropic_client(config)
+        else:
+            self.client = OpenAI(
+                api_key=config.api_key,
+                base_url=config.base_url,
+                timeout=config.timeout,
+            )
+
+    def _is_anthropic(self) -> bool:
+        return self.config.api_type == LLMApiType.ANTHROPIC
+
+    def _init_anthropic_client(self, config: PivotConfig) -> Anthropic:
+        base_url = (config.base_url or "").rstrip("/")
+        if base_url.endswith("/v1"):
+            base_url = base_url[: -len("/v1")]
+        return Anthropic(
+            auth_token=config.api_key,
+            base_url=base_url or None,
             timeout=config.timeout,
         )
     
@@ -35,6 +53,182 @@ class ApiLLM(BaseLLM):
             "prompt_tokens": getattr(usage, "prompt_tokens", getattr(usage, "input_tokens", 0)),
             "completion_tokens": getattr(usage, "completion_tokens", getattr(usage, "output_tokens", 0)),
             "total_tokens": usage.total_tokens,
+        }
+
+    def _anthropic_usage(self, usage: Any) -> Dict[str, int]:
+        if isinstance(usage, dict):
+            input_tokens = usage.get("input_tokens", 0) or 0
+            output_tokens = usage.get("output_tokens", 0) or 0
+            cache_read = usage.get("cache_read_input_tokens", 0) or 0
+            cache_creation = usage.get("cache_creation_input_tokens", 0) or 0
+        else:
+            input_tokens = getattr(usage, "input_tokens", 0) or 0
+            output_tokens = getattr(usage, "output_tokens", 0) or 0
+            cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
+            cache_creation = getattr(usage, "cache_creation_input_tokens", 0) or 0
+        prompt_tokens = input_tokens + cache_read + cache_creation
+        return {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": output_tokens,
+            "total_tokens": prompt_tokens + output_tokens,
+        }
+
+    def _content_to_text(self, content: Any) -> str:
+        if content is None:
+            return ""
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts = []
+            for part in content:
+                if isinstance(part, str):
+                    parts.append(part)
+                elif isinstance(part, dict) and part.get("type") == "text":
+                    parts.append(part.get("text", ""))
+            return "".join(parts)
+        return str(content)
+
+    def _anthropic_messages(self, messages: List[Dict[str, Any]]):
+        system_parts = []
+        converted = []
+
+        def append(role: str, content: Any):
+            if converted and converted[-1]["role"] == role:
+                prev = converted[-1]["content"]
+                if isinstance(prev, str) and isinstance(content, str):
+                    converted[-1]["content"] = f"{prev}\n{content}"
+                else:
+                    if isinstance(prev, str):
+                        prev = [{"type": "text", "text": prev}]
+                    if isinstance(content, str):
+                        content = [{"type": "text", "text": content}]
+                    converted[-1]["content"] = prev + content
+            else:
+                converted.append({"role": role, "content": content})
+
+        for msg in messages:
+            role = msg.get("role")
+            content = msg.get("content")
+            if role == "system":
+                text = self._content_to_text(content)
+                if text:
+                    system_parts.append(text)
+            elif role == "tool":
+                append("user", [{
+                    "type": "tool_result",
+                    "tool_use_id": msg.get("tool_call_id", ""),
+                    "content": self._content_to_text(content),
+                }])
+            elif role == "assistant" and msg.get("tool_calls"):
+                blocks = []
+                text = self._content_to_text(content)
+                if text:
+                    blocks.append({"type": "text", "text": text})
+                for tc in msg["tool_calls"]:
+                    if isinstance(tc, dict):
+                        fn = tc.get("function", {})
+                        name = fn.get("name")
+                        arguments = fn.get("arguments", "{}")
+                    else:
+                        name = tc.function.name
+                        arguments = tc.function.arguments
+                    input_data = json.loads(arguments) if isinstance(arguments, str) else arguments
+                    blocks.append({
+                        "type": "tool_use",
+                        "id": tc.get("id") if isinstance(tc, dict) else tc.id,
+                        "name": name,
+                        "input": input_data or {},
+                    })
+                append("assistant", blocks)
+            else:
+                append("user" if role == "user" else "assistant", self._content_to_text(content))
+
+        return "\n\n".join(system_parts) or None, converted
+
+    def _anthropic_tools(self, tools: Optional[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+        converted = []
+        for tool in tools or []:
+            if tool.get("type") == "function" and "function" in tool:
+                fn = tool["function"]
+                converted.append({
+                    "name": fn["name"],
+                    "description": fn.get("description", ""),
+                    "input_schema": fn.get("parameters") or {"type": "object", "properties": {}},
+                })
+            else:
+                converted.append(tool)
+        return converted
+
+    def _anthropic_tool_choice(self, tool_choice: Any) -> Optional[Dict[str, Any]]:
+        if tool_choice is None:
+            return None
+        if tool_choice == "auto":
+            return {"type": "auto"}
+        if tool_choice == "none":
+            return {"type": "none"}
+        if tool_choice in ("any", "required"):
+            return {"type": "any"}
+        if isinstance(tool_choice, dict) and tool_choice.get("type") == "function":
+            return {"type": "tool", "name": tool_choice["function"]["name"]}
+        return None
+
+    def _anthropic_params(self, messages, tools, merged_params, stream=False):
+        system, converted = self._anthropic_messages(messages)
+        params = {
+            "model": self.config.model_id,
+            "messages": converted,
+            "max_tokens": merged_params.pop("max_tokens", 4096),
+        }
+        if system:
+            params["system"] = system
+        if "temperature" in merged_params:
+            params["temperature"] = merged_params.pop("temperature")
+        converted_tools = self._anthropic_tools(tools)
+        if converted_tools:
+            params["tools"] = converted_tools
+            tool_choice = self._anthropic_tool_choice(merged_params.pop("tool_choice", None))
+            if tool_choice:
+                params["tool_choice"] = tool_choice
+        params.update(merged_params)
+        if stream:
+            params["stream"] = True
+        return params
+
+    def _map_stop_reason(self, stop_reason: Any) -> Optional[str]:
+        return {
+            "end_turn": "stop",
+            "stop_sequence": "stop",
+            "max_tokens": "length",
+            "tool_use": "tool_calls",
+            "refusal": "content_filter",
+        }.get(stop_reason, stop_reason)
+
+    def _generate_anthropic(self, messages, tools, merged_params):
+        response = self.client.messages.create(
+            **self._anthropic_params(messages, tools, merged_params)
+        )
+        text_parts = []
+        tool_calls = []
+        for block in response.content:
+            block_type = getattr(block, "type", None)
+            if block_type == "text":
+                text_parts.append(block.text)
+            elif block_type == "tool_use":
+                tool_calls.append({
+                    "id": block.id,
+                    "type": "function",
+                    "function": {
+                        "name": block.name,
+                        "arguments": json.dumps(block.input) if not isinstance(block.input, str) else block.input,
+                    },
+                })
+        return {
+            "content": "".join(text_parts) or None,
+            "role": "assistant",
+            "tool_calls": tool_calls or None,
+            "finish_reason": self._map_stop_reason(response.stop_reason),
+            "usage": self._anthropic_usage(response.usage),
+            "model": response.model,
         }
 
     def _responses_params(self, messages, tools, merged_params, stream=False):
@@ -90,6 +284,8 @@ class ApiLLM(BaseLLM):
         **kwargs
     ) -> Dict[str, Any]:
         merged_params = self._merge_params(**kwargs)
+        if self._is_anthropic():
+            return self._generate_anthropic(messages, tools, merged_params)
         if self.config.api_type == LLMApiType.RESPONSES:
             return self._generate_responses(messages, tools, merged_params)
         
@@ -169,6 +365,8 @@ class ApiLLM(BaseLLM):
         text: Union[str, List[str]],
         **kwargs
     ) -> Union[List[float], List[List[float]]]:
+        if self._is_anthropic():
+            raise ValueError("Embedding is not supported by the Anthropic API")
         merged_params = self._merge_params(**kwargs)
         
         model = merged_params.pop("model", self.config.model_id)
@@ -195,6 +393,8 @@ class ApiLLM(BaseLLM):
         text: str,
         **kwargs
     ) -> float:
+        if self._is_anthropic():
+            raise ValueError("Perplexity is not supported by the Anthropic API")
         if self.config.api_type == LLMApiType.RESPONSES:
             raise ValueError("Perplexity is not supported by the Responses API")
         merged_params = self._merge_params(**kwargs)
@@ -226,6 +426,35 @@ class ApiLLM(BaseLLM):
         **kwargs
     ) -> Iterator[str]:
         merged_params = self._merge_params(**kwargs)
+        if self._is_anthropic():
+            self.last_stream_usage = None
+            prompt_tokens = 0
+            stream = self.client.messages.create(
+                **self._anthropic_params(messages, tools, merged_params, stream=True)
+            )
+            for event in stream:
+                event_type = getattr(event, "type", None)
+                if event_type == "message_start":
+                    usage = getattr(event.message, "usage", None)
+                    if usage:
+                        input_tokens = getattr(usage, "input_tokens", 0) or 0
+                        cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
+                        cache_creation = getattr(usage, "cache_creation_input_tokens", 0) or 0
+                        prompt_tokens = input_tokens + cache_read + cache_creation
+                elif event_type == "content_block_delta":
+                    delta = event.delta
+                    if getattr(delta, "type", None) == "text_delta":
+                        yield delta.text
+                elif event_type == "message_delta":
+                    usage = getattr(event, "usage", None)
+                    output_tokens = getattr(usage, "output_tokens", 0) or 0 if usage else 0
+                    self.last_stream_usage = {
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": output_tokens,
+                        "total_tokens": prompt_tokens + output_tokens,
+                    }
+            return
+
         if self.config.api_type == LLMApiType.RESPONSES:
             self.last_stream_usage = None
             stream = self.client.responses.create(

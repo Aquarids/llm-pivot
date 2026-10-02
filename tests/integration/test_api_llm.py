@@ -27,6 +27,7 @@ def api_config(test_config):
     
     return PivotConfig(
         model_type="online",
+        api_type=test_config.get('online', 'api_type', fallback='chat_completions'),
         model_id=test_config.get('online', 'model_id'),
         api_key=test_config.get('online', 'api_key'),
         base_url=test_config.get('online', 'base_url'),

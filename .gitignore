@@ -13,3 +13,4 @@ dist/
 **/__pycache__
 local_config.ini
 *.egg-info
+.env
