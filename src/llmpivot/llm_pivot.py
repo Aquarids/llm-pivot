@@ -1,5 +1,6 @@
+import asyncio
 from typing import List, Dict, Any, Optional, Union, Iterator
-from .config import PivotConfig, ModelType
+from .config import PivotConfig, ModelType, LLMApiType
 from .llm import ApiLLM, LocalLLM, BaseLLM
 from .helper import Logger
 
@@ -20,6 +21,9 @@ class LLMPivot:
         self.logger.info(f"Model ID: {self.config.model_id}")
         
         if self.config.model_type == ModelType.ONLINE:
+            if self.config.api_type == LLMApiType.SIWC:
+                from .llm.siwc_llm import SIWCLLM
+                return SIWCLLM(self.config, self.logger)
             if not self.config.api_key:
                 self.logger.error("API key is required for online model")
                 raise ValueError("api_key is required for online model")
@@ -47,6 +51,12 @@ class LLMPivot:
             self.logger.debug(f"Tools provided: {len(tools)} tool(s)")
         return self.llm.generate(messages, tools, **kwargs)
     
+    async def agenerate(self, messages, tools=None, **kwargs):
+        return await asyncio.to_thread(self.generate, messages, tools, **kwargs)
+
+    async def adialogue(self, messages, stream=False, **kwargs):
+        return await asyncio.to_thread(self.dialogue, messages, stream, **kwargs)
+
     def dialogue(
         self,
         messages: List[Dict[str, str]],

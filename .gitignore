@@ -14,3 +14,5 @@ dist/
 local_config.ini
 *.egg-info
 .env
+
+/siwc_config.json

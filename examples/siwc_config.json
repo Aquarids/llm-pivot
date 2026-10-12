@@ -1,0 +1,14 @@
+{
+  "model_type": "online",
+  "api_type": "siwc",
+  "model_id": "gpt-6.1-sol",
+  "timeout": 120,
+  "enable_log": false,
+  "siwc": {
+    "app_name": "SIWC Research",
+    "credentials_dir": null,
+    "login_timeout": 300,
+    "refresh_margin": 60,
+    "max_concurrency": 8
+  }
+}

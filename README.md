@@ -21,7 +21,7 @@ pip install aq-llm-pivot
 To install this release explicitly:
 
 ```bash
-pip install aq-llm-pivot==0.1.0
+pip install aq-llm-pivot==0.2.1
 ```
 
 #### Local Development
@@ -140,6 +140,78 @@ operation is required. `perplexity()` remains a Chat Completions-only operation
 because it requires token log probabilities.
 
 See the official [OpenAI Responses migration guide](https://developers.openai.com/api/docs/guides/migrate-to-responses).
+
+#### ChatGPT plan (SIWC)
+
+```bash
+pip install -U 'aq-llm-pivot[siwc]==0.2.1'
+llm-pivot-siwc --config siwc_config.json login --smoke
+llm-pivot-siwc --config siwc_config.json models
+```
+
+Create `siwc_config.json`:
+
+```json
+{
+  "api_type": "siwc",
+  "model_id": "gpt-6.1-sol",
+  "timeout": 120,
+  "enable_log": false,
+  "siwc": {
+    "app_name": "My Research",
+    "credentials_dir": null,
+    "login_timeout": 300,
+    "refresh_margin": 60,
+    "max_concurrency": 8
+  }
+}
+```
+
+Authorization and inference read the same configuration. Set your application's
+name and use a model available to the authorized account.
+
+```python
+from llmpivot import LLMPivot, PivotConfig, SIWCAuth
+
+config = PivotConfig.from_file("siwc_config.json")
+SIWCAuth(config.siwc).login()
+
+with LLMPivot(config) as llm:
+    result = llm.generate([{"role": "user", "content": "Hello"}])
+    print(result["content"])
+```
+
+Use either the login command or `SIWCAuth.login()` once during setup; subsequent
+calls refresh credentials automatically. No API key or base URL is needed.
+
+```python
+import asyncio
+from llmpivot import LLMPivot, PivotConfig
+
+async def run(prompts):
+    with LLMPivot(PivotConfig.from_file("siwc_config.json")) as llm:
+        return await asyncio.gather(*[
+            llm.agenerate([{"role": "user", "content": prompt}])
+            for prompt in prompts
+        ])
+```
+
+`siwc.max_concurrency` limits requests per instance. Sync calls support thread
+pools; `agenerate()`/`adialogue()` use worker threads. Multiple processes share
+locked, rotating credentials. Each result includes its own usage.
+
+Credentials default to `~/.config/llm-pivot/siwc/<app-id>/` on macOS/Linux
+(or `XDG_CONFIG_HOME`). Experiments in one authorized research application share
+one directory. To reuse an existing login, set `siwc.credentials_dir` to its
+original directory; `LLM_PIVOT_SIWC_DIR` is also supported. Keep credentials private.
+
+SIWC uses streaming Responses, `store=false`, and verifies completion. It disables
+automatic retries and rejects unsupported parameters such as `temperature`,
+`max_tokens` and `previous_response_id`. Embedding/perplexity are unavailable.
+Function tools are grouped in namespaces; `tool_choice` accepts `auto`, `required`
+or `none`. See [preview limits](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
+Manage access at [ChatGPT Usage](https://chatgpt.com/settings/usage). Plan eligibility
+and [SIWC terms](https://openai.com/policies/sign-in-with-chatgpt-terms/) apply.
 
 #### Anthropic Messages API
 
@@ -583,25 +655,25 @@ Update the single version source:
 
 ```python
 # src/llmpivot/__version__.py
-__version__ = "0.1.0"
+__version__ = "0.2.1"
 ```
 
 Run the tests and build checks, then commit and push the change:
 
 ```bash
-python -m pytest tests/unit/test_responses_api.py tests/unit/test_anthropic_api.py
+python -m pytest tests/unit
 python -m build
 python -m twine check dist/*
 git add src/llmpivot/__version__.py
-git commit -m "release: v0.1.0"
+git commit -m "release: v0.2.1"
 git push origin main
 ```
 
 Create and push the matching annotated tag:
 
 ```bash
-git tag -a v0.1.0 -m "Release v0.1.0"
-git push origin v0.1.0
+git tag -a v0.2.1 -m "Release v0.2.1"
+git push origin v0.2.1
 ```
 
 The workflow validates the version/tag match and publishes the wheel and source
